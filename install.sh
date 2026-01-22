@@ -36,32 +36,33 @@ python "$HOME/.nlsh/nlsh.py" "$@"
 EOF
 chmod +x "$HOME/.local/bin/nlsh"
 
-# Add to PATH in shell configs
 setup_shell() {
     local rc_file="$1"
     touch "$rc_file"
     
-    # Add PATH if not present
     if ! grep -q '.local/bin' "$rc_file" 2>/dev/null; then
         echo '' >> "$rc_file"
         echo '# nlsh - PATH' >> "$rc_file"
         echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc_file"
-        echo "Added PATH to $rc_file"
+    fi
+    
+    if ! grep -q 'nlsh # auto-start' "$rc_file" 2>/dev/null; then
+        echo '' >> "$rc_file"
+        echo '# nlsh - auto-start (remove this line to disable)' >> "$rc_file"
+        echo '[ -t 0 ] && [ -x "$HOME/.local/bin/nlsh" ] && nlsh # auto-start' >> "$rc_file"
+        echo "Added nlsh auto-start to $rc_file"
     fi
 }
 
-# macOS uses zsh by default
 setup_shell "$HOME/.zprofile"
 setup_shell "$HOME/.zshrc"
-# Linux/bash support
 setup_shell "$HOME/.bashrc"
 setup_shell "$HOME/.bash_profile"
 
-# Make PATH available immediately
 export PATH="$HOME/.local/bin:$PATH"
 
 echo ""
 echo "nlsh installed successfully!"
 echo ""
-echo "To start nlsh, run: nlsh"
+echo "Open a new terminal to start using nlsh, or run: nlsh"
 echo ""
