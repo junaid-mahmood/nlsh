@@ -14,3 +14,7 @@ __pycache__/
 *.swp
 *.swo
 .DS_Store
+
+# JavaScript
+node_modules/
+.vercel
