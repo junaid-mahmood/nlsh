@@ -3,12 +3,25 @@ import signal
 import os
 import sys
 import subprocess
-import readline
+import platform
+
+# Platform detection
+IS_WINDOWS = platform.system() == "Windows"
+
+# readline support - use pyreadline3 on Windows
+try:
+    if IS_WINDOWS:
+        import pyreadline3 as readline
+    else:
+        import readline
+except ImportError:
+    pass  # readline is optional, just provides history/editing
 
 def exit_handler(sig, frame):
     print()
     raise InterruptedError()
 
+# SIGINT handling - works on all platforms
 signal.signal(signal.SIGINT, exit_handler)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -86,9 +99,22 @@ def format_history() -> str:
                 lines.append(f"   {line}")
     return "\n".join(lines)
 
+def get_shell_info() -> tuple[str, str]:
+    """Returns (os_name, shell_name) for the current platform."""
+    if IS_WINDOWS:
+        # Check if running in PowerShell or cmd
+        if os.environ.get("PSModulePath"):
+            return ("Windows", "PowerShell")
+        return ("Windows", "cmd")
+    elif platform.system() == "Darwin":
+        return ("macOS", "zsh")
+    else:
+        return ("Linux", "bash")
+
 def get_command(user_input: str, cwd: str) -> str:
     history_context = format_history()
-    prompt = f"""You are a shell command translator. Convert the user's request into a shell command for macOS/zsh.
+    os_name, shell_name = get_shell_info()
+    prompt = f"""You are a shell command translator. Convert the user's request into a shell command for {os_name}/{shell_name}.
 Current directory: {cwd}
 
 Recent command history:
@@ -100,6 +126,7 @@ Rules:
 - If unclear, make a reasonable assumption
 - Prefer simple, common commands
 - Use the command history for context (e.g., "do that again", "delete the file I just created")
+- For {os_name}, use native commands (e.g., {'dir instead of ls, del instead of rm, type instead of cat' if IS_WINDOWS else 'ls, rm, cat'})
 
 User request: {user_input}"""
 
@@ -112,14 +139,31 @@ User request: {user_input}"""
 def is_natural_language(text: str) -> bool:
     if text.startswith("!"):
         return False
-    shell_commands = ["ls", "pwd", "clear", "exit", "quit", "whoami", "date", "cal", 
+
+    # Common shell commands (cross-platform)
+    shell_commands = ["ls", "pwd", "clear", "exit", "quit", "whoami", "date", "cal",
                       "top", "htop", "history", "which", "man", "touch", "head", "tail",
                       "grep", "find", "sort", "wc", "diff", "tar", "zip", "unzip"]
-    shell_starters = ["cd ", "ls ", "echo ", "cat ", "mkdir ", "rm ", "cp ", "mv ", 
-                      "git ", "npm ", "node ", "npx ", "python", "pip ", "brew ", "curl ", 
-                      "wget ", "chmod ", "chown ", "sudo ", "vi ", "vim ", "nano ", "code ", 
+
+    # Windows-specific commands
+    if IS_WINDOWS:
+        shell_commands.extend(["dir", "cls", "type", "copy", "move", "del", "ren",
+                               "md", "rd", "where", "tasklist", "taskkill", "ipconfig",
+                               "netstat", "systeminfo", "hostname", "ver", "tree"])
+
+    shell_starters = ["cd ", "ls ", "echo ", "cat ", "mkdir ", "rm ", "cp ", "mv ",
+                      "git ", "npm ", "node ", "npx ", "python", "pip ", "brew ", "curl ",
+                      "wget ", "chmod ", "chown ", "sudo ", "vi ", "vim ", "nano ", "code ",
                       "open ", "export ", "source ", "docker ", "kubectl ", "aws ", "gcloud ",
                       "./", "/", "~", "$", ">", ">>", "|", "&&"]
+
+    # Windows-specific starters
+    if IS_WINDOWS:
+        shell_starters.extend(["dir ", "type ", "copy ", "move ", "del ", "ren ",
+                               "md ", "rd ", "cls", "where ", "set ", "start ",
+                               "powershell ", "pwsh ", "cmd ", "wsl ",
+                               ".\\", "C:\\", "D:\\", "%"])
+
     if text in shell_commands:
         return False
     return not any(text.startswith(s) for s in shell_starters)
@@ -155,13 +199,19 @@ def main():
                 confirm = input("\033[33mRemove nlsh? [y/N]\033[0m ")
                 if confirm.lower() == "y":
                     import shutil
-                    install_dir = os.path.expanduser("~/.nlsh")
-                    bin_path = os.path.expanduser("~/.local/bin/nlsh")
+                    if IS_WINDOWS:
+                        install_dir = os.path.join(os.environ.get("LOCALAPPDATA", ""), "nlsh")
+                        bin_path = os.path.join(install_dir, "nlsh.bat")
+                    else:
+                        install_dir = os.path.expanduser("~/.nlsh")
+                        bin_path = os.path.expanduser("~/.local/bin/nlsh")
                     if os.path.exists(install_dir):
                         shutil.rmtree(install_dir)
-                    if os.path.exists(bin_path):
+                    if os.path.exists(bin_path) and not IS_WINDOWS:
                         os.remove(bin_path)
                     print("\033[32m✓ nlsh uninstalled\033[0m")
+                    if IS_WINDOWS:
+                        print("\033[33mNote: Remove nlsh from your PATH manually if needed.\033[0m")
                     sys.exit(0)
                 continue
             
