@@ -30,4 +30,4 @@ Commands:
 - `!api` - Change API key
 - `!help` - Show help
 - `!cmd` - Run cmd directly
-- `Ctrl+C` - Exit
+- `Ctrl+D` - Exit

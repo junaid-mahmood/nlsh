@@ -36,27 +36,40 @@ python "$HOME/.nlsh/nlsh.py" "$@"
 EOF
 chmod +x "$HOME/.local/bin/nlsh"
 
-# Add to PATH automatically if needed
-if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    SHELL_RC=""
-    if [ -f "$HOME/.zshrc" ]; then
-        SHELL_RC="$HOME/.zshrc"
-    elif [ -f "$HOME/.bashrc" ]; then
-        SHELL_RC="$HOME/.bashrc"
-    elif [ -f "$HOME/.bash_profile" ]; then
-        SHELL_RC="$HOME/.bash_profile"
+# Add to PATH and auto-start nlsh in shell configs
+setup_shell() {
+    local rc_file="$1"
+    touch "$rc_file"
+    
+    # Add PATH if not present
+    if ! grep -q '.local/bin' "$rc_file" 2>/dev/null; then
+        echo '' >> "$rc_file"
+        echo '# nlsh - PATH' >> "$rc_file"
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc_file"
     fi
     
-    if [ -n "$SHELL_RC" ]; then
-        if ! grep -q '.local/bin' "$SHELL_RC" 2>/dev/null; then
-            echo '' >> "$SHELL_RC"
-            echo '# nlsh' >> "$SHELL_RC"
-            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
-            echo "Added to PATH in $SHELL_RC"
-        fi
+    # Add auto-start if not present
+    if ! grep -q 'nlsh # auto-start' "$rc_file" 2>/dev/null; then
+        echo '' >> "$rc_file"
+        echo '# nlsh - auto-start (remove this line to disable)' >> "$rc_file"
+        echo '[ -x "$HOME/.local/bin/nlsh" ] && nlsh # auto-start' >> "$rc_file"
+        echo "Added nlsh auto-start to $rc_file"
     fi
-fi
+}
+
+# macOS uses zsh by default
+setup_shell "$HOME/.zprofile"
+setup_shell "$HOME/.zshrc"
+# Linux/bash support
+setup_shell "$HOME/.bashrc"
+setup_shell "$HOME/.bash_profile"
+
+# Make PATH available immediately
+export PATH="$HOME/.local/bin:$PATH"
 
 echo ""
-echo "nlsh installed! Open a new terminal and run 'nlsh' to start."
+echo "nlsh installed! Starting..."
 echo ""
+
+# Run nlsh immediately
+exec "$HOME/.local/bin/nlsh"

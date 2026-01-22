@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
+import signal
 import os
 import sys
 import subprocess
 import readline
+
+def exit_handler(sig, frame):
+    print()
+    raise InterruptedError()
+
+signal.signal(signal.SIGINT, exit_handler)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 env_path = os.path.join(script_dir, ".env")
@@ -118,8 +125,6 @@ def is_natural_language(text: str) -> bool:
     return not any(text.startswith(s) for s in shell_starters)
 
 def main():
-    global first_run
-    first_command = first_run
     while True:
         try:
             cwd = os.getcwd()
@@ -128,10 +133,6 @@ def main():
             
             if not user_input:
                 continue
-            
-            if first_command:
-                os.system("clear")
-                first_command = False
             
             if user_input.startswith("cd "):
                 path = os.path.expanduser(user_input[3:].strip())
@@ -204,17 +205,13 @@ def main():
                         print(result.stderr, end="")
                     add_to_history(command, result.stdout + result.stderr)
             
-        except KeyboardInterrupt:
-            print("\nbye!")
-            sys.exit(0)
-        except EOFError:
-            print("\nbye!")
-            sys.exit(0)
+        except (EOFError, InterruptedError, KeyboardInterrupt):
+            continue
         except Exception as e:
             err = str(e)
             if "429" in err or "quota" in err.lower():
                 print("\033[31mrate limit hit - wait a moment and try again\033[0m")
-            else:
+            elif "InterruptedError" not in err and "KeyboardInterrupt" not in err:
                 print(f"\033[31merror: {err[:100]}\033[0m")
 
 if __name__ == "__main__":
