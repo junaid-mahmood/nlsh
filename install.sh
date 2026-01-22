@@ -36,7 +36,7 @@ python "$HOME/.nlsh/nlsh.py" "$@"
 EOF
 chmod +x "$HOME/.local/bin/nlsh"
 
-# Add to PATH and auto-start nlsh in shell configs
+# Add to PATH in shell configs
 setup_shell() {
     local rc_file="$1"
     touch "$rc_file"
@@ -46,14 +46,7 @@ setup_shell() {
         echo '' >> "$rc_file"
         echo '# nlsh - PATH' >> "$rc_file"
         echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$rc_file"
-    fi
-    
-    # Add auto-start if not present
-    if ! grep -q 'nlsh # auto-start' "$rc_file" 2>/dev/null; then
-        echo '' >> "$rc_file"
-        echo '# nlsh - auto-start (remove this line to disable)' >> "$rc_file"
-        echo '[ -x "$HOME/.local/bin/nlsh" ] && nlsh # auto-start' >> "$rc_file"
-        echo "Added nlsh auto-start to $rc_file"
+        echo "Added PATH to $rc_file"
     fi
 }
 
@@ -68,8 +61,7 @@ setup_shell "$HOME/.bash_profile"
 export PATH="$HOME/.local/bin:$PATH"
 
 echo ""
-echo "nlsh installed! Starting..."
+echo "nlsh installed successfully!"
 echo ""
-
-# Run nlsh immediately
-exec "$HOME/.local/bin/nlsh"
+echo "To start nlsh, run: nlsh"
+echo ""
