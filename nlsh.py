@@ -119,11 +119,22 @@ Rules:
 
 User request: {user_input}"""
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
-    return response.text.strip()
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=prompt
+        )
+        return response.text.strip()
+    except Exception as e:
+        err_msg = str(e)
+        if "API key not valid" in err_msg or "INVALID_ARGUMENT" in err_msg:
+            print("\033[31mInvalid API key detected.\033[0m")
+            setup_api_key()
+            # Update the global client and retry once
+            global client
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            return get_command(user_input, cwd)
+        raise e
 
 def is_natural_language(text: str) -> bool:
     if text.startswith("!"):
@@ -142,6 +153,13 @@ def is_natural_language(text: str) -> bool:
     return not any(text.startswith(s) for s in shell_starters)
 
 def main():
+    # Handle single command execution via CLI arguments
+    if len(sys.argv) > 1:
+        user_input = " ".join(sys.argv[1:]).strip()
+        if user_input:
+            process_input(user_input)
+            return
+
     while True:
         try:
             cwd = os.getcwd()
@@ -151,94 +169,109 @@ def main():
             if not user_input:
                 continue
             
-            if user_input.startswith("cd "):
-                path = os.path.expanduser(user_input[3:].strip())
-                try:
-                    os.chdir(path)
-                except Exception as e:
-                    print(f"cd: {e}")
-                continue
-            elif user_input == "cd":
-                os.chdir(os.path.expanduser("~"))
-                continue
-            
-            if user_input == "!api":
-                setup_api_key()
-                global client
-                client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-                continue
-            
-            if user_input == "!uninstall":
-                confirm = input("\033[33mRemove nlsh? [y/N]\033[0m ")
-                if confirm.lower() == "y":
-                    install_dir = os.path.expanduser("~/.nlsh")
-                    if sys.platform == "win32":
-                        # Cleanup for Windows
-                        if os.path.exists(install_dir):
-                            shutil.rmtree(install_dir)
-                        print("\033[32m✓ nlsh uninstalled\033[0m")
-                        print("\033[33mNote: You may still have nlsh in your PATH or PowerShell Profile.\033[0m")
-                    else:
-                        bin_path = os.path.expanduser("~/.local/bin/nlsh")
-                        if os.path.exists(install_dir):
-                            shutil.rmtree(install_dir)
-                        if os.path.exists(bin_path):
-                            os.remove(bin_path)
-                        print("\033[32m✓ nlsh uninstalled\033[0m")
-                    sys.exit(0)
-                continue
-            
-            if user_input == "!help":
-                show_help()
-                continue
-            
-            if user_input.startswith("!"):
-                cmd = user_input[1:]
-                if not cmd:
-                    continue
-                shell_executable = get_shell_executable()
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, executable=shell_executable)
-                print(result.stdout, end="")
-                if result.stderr:
-                    print(result.stderr, end="")
-                add_to_history(cmd, result.stdout + result.stderr)
-                continue
-            
-            if not is_natural_language(user_input):
-                shell_executable = get_shell_executable()
-                result = subprocess.run(user_input, shell=True, capture_output=True, text=True, executable=shell_executable)
-                print(result.stdout, end="")
-                if result.stderr:
-                    print(result.stderr, end="")
-                add_to_history(user_input, result.stdout + result.stderr)
-                continue
-            
-            command = get_command(user_input, cwd)
-            confirm = input(f"\033[33m→ {command}\033[0m [Enter] ")
-            
-            if confirm == "":
-                if command.startswith("cd "):
-                    path = os.path.expanduser(command[3:].strip())
-                    try:
-                        os.chdir(path)
-                    except Exception as e:
-                        print(f"cd: {e}")
-                else:
-                    shell_executable = get_shell_executable()
-                    result = subprocess.run(command, shell=True, capture_output=True, text=True, executable=shell_executable)
-                    print(result.stdout, end="")
-                    if result.stderr:
-                        print(result.stderr, end="")
-                    add_to_history(command, result.stdout + result.stderr)
+            process_input(user_input)
             
         except (EOFError, InterruptedError, KeyboardInterrupt):
             continue
         except Exception as e:
-            err = str(e)
-            if "429" in err or "quota" in err.lower():
-                print("\033[31mrate limit hit - wait a moment and try again\033[0m")
-            elif "InterruptedError" not in err and "KeyboardInterrupt" not in err:
-                print(f"\033[31merror: {err[:100]}\033[0m")
+            handle_exception(e)
+
+def process_input(user_input: str):
+    cwd = os.getcwd()
+    
+    if user_input.startswith("cd "):
+        path = os.path.expanduser(user_input[3:].strip())
+        try:
+            os.chdir(path)
+        except Exception as e:
+            print(f"cd: {e}")
+        return
+    elif user_input == "cd":
+        os.chdir(os.path.expanduser("~"))
+        return
+    
+    if user_input == "!api":
+        setup_api_key()
+        global client
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        return
+    
+    if user_input == "!uninstall":
+        confirm = input("\033[33mRemove nlsh? [y/N]\033[0m ")
+        if confirm.lower() == "y":
+            install_dir = os.path.expanduser("~/.nlsh")
+            if sys.platform == "win32":
+                # Cleanup for Windows
+                if os.path.exists(install_dir):
+                    shutil.rmtree(install_dir)
+                print("\033[32m✓ nlsh uninstalled\033[0m")
+                print("\033[33mNote: You may still have nlsh in your PATH or PowerShell Profile.\033[0m")
+            else:
+                bin_path = os.path.expanduser("~/.local/bin/nlsh")
+                if os.path.exists(install_dir):
+                    shutil.rmtree(install_dir)
+                if os.path.exists(bin_path):
+                    os.remove(bin_path)
+                print("\033[32m✓ nlsh uninstalled\033[0m")
+            sys.exit(0)
+        return
+    
+    if user_input == "!help":
+        show_help()
+        return
+    
+    if user_input.startswith("!"):
+        cmd = user_input[1:]
+        if not cmd:
+            return
+        shell_executable = get_shell_executable()
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, executable=shell_executable)
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="")
+        add_to_history(cmd, result.stdout + result.stderr)
+        return
+    
+    if not is_natural_language(user_input):
+        shell_executable = get_shell_executable()
+        result = subprocess.run(user_input, shell=True, capture_output=True, text=True, executable=shell_executable)
+        print(result.stdout, end="")
+        if result.stderr:
+            print(result.stderr, end="")
+        add_to_history(user_input, result.stdout + result.stderr)
+        return
+    
+    command = get_command(user_input, cwd)
+    confirm = input(f"\033[33m→ {command}\033[0m [Enter] ")
+    
+    if confirm == "":
+        if command.startswith("cd "):
+            path = os.path.expanduser(command[3:].strip())
+            try:
+                os.chdir(path)
+            except Exception as e:
+                print(f"cd: {e}")
+        else:
+            shell_executable = get_shell_executable()
+            result = subprocess.run(command, shell=True, capture_output=True, text=True, executable=shell_executable)
+            print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="")
+            add_to_history(command, result.stdout + result.stderr)
+
+def handle_exception(e: Exception):
+    err = str(e)
+    if "429" in err or "quota" in err.lower():
+        print("\033[31mrate limit hit - wait a moment and try again\033[0m")
+    elif "InterruptedError" not in err and "KeyboardInterrupt" not in err:
+        if "API key not valid" in err or "INVALID_ARGUMENT" in err:
+            print("\033[31mInvalid API key detected.\033[0m")
+            setup_api_key()
+            global client
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            print("\033[32mPlease try your command again.\033[0m")
+        else:
+            print(f"\033[31merror: {err[:200]}\033[0m")
 
 if __name__ == "__main__":
     main()
