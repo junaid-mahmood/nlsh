@@ -30,4 +30,5 @@ Commands:
 - `!api` - Change API key
 - `!help` - Show help
 - `!cmd` - Run cmd directly
+- `exit` - Exit nlsh
 - `Ctrl+D` - Exit
