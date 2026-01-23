@@ -171,13 +171,20 @@ def main():
             
             process_input(user_input)
             
-        except (EOFError, InterruptedError, KeyboardInterrupt):
+        except EOFError:
+            print()
+            sys.exit(0)
+        except (InterruptedError, KeyboardInterrupt):
+            print()
             continue
         except Exception as e:
             handle_exception(e)
 
 def process_input(user_input: str):
     cwd = os.getcwd()
+
+    if user_input in ["exit", "exit()", "quit", "quit()"]:
+        sys.exit(0)
     
     if user_input.startswith("cd "):
         path = os.path.expanduser(user_input[3:].strip())
