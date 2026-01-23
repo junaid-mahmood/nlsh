@@ -120,8 +120,8 @@ def run_shell_command(command: str, capture_output: bool = True):
     shell_exe = get_shell_executable()
     if sys.platform == "win32" and shell_exe:
         # On Windows, we invoke PowerShell explicitly with -Command
-        # This is more reliable than shell=True + executable
-        return subprocess.run([shell_exe, "-Command", command], capture_output=capture_output, text=True)
+        # -NoProfile is used to avoid loading the user's profile, which prevents PSReadLine noise
+        return subprocess.run([shell_exe, "-NoProfile", "-Command", command], capture_output=capture_output, text=True)
     else:
         # On Unix-like systems, shell=True uses /bin/sh by default
         return subprocess.run(command, shell=True, capture_output=capture_output, text=True)
