@@ -119,6 +119,7 @@ Rules:
 
 User request: {user_input}"""
 
+    global client
     try:
         response = client.models.generate_content(
             model="gemini-2.0-flash",
@@ -130,7 +131,6 @@ User request: {user_input}"""
         if "API key" in err_msg or "INVALID_ARGUMENT" in err_msg:
             print("\033[31m✕ Invalid API key provided.\033[0m")
             setup_api_key()
-            global client
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             return get_command(user_input, cwd)
         raise e
@@ -266,12 +266,12 @@ def process_input(user_input: str):
             add_to_history(command, result.stdout + result.stderr)
 
 def handle_exception(e: Exception):
+    global client
     err = str(e)
     # Handle API Key issues specifically
     if "API key" in err or "INVALID_ARGUMENT" in err:
         print("\033[31m✕ Invalid API key. Please check your key and try again.\033[0m")
         setup_api_key()
-        global client
         client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     # Handle Rate Limits
     elif "429" in err or "quota" in err.lower():
