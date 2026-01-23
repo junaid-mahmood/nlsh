@@ -3,7 +3,12 @@ import signal
 import os
 import sys
 import subprocess
-import readline
+import shutil
+try:
+    import readline
+except ImportError:
+    readline = None
+
 
 def exit_handler(sig, frame):
     print()
@@ -86,9 +91,20 @@ def format_history() -> str:
                 lines.append(f"   {line}")
     return "\n".join(lines)
 
+def get_shell() -> str:
+    if sys.platform == "win32":
+        return "Windows/PowerShell"
+    return "macOS/zsh"
+
+def get_shell_executable():
+    if sys.platform != "win32":
+        return None
+    return "pwsh" if shutil.which("pwsh") else "powershell"
+
 def get_command(user_input: str, cwd: str) -> str:
     history_context = format_history()
-    prompt = f"""You are a shell command translator. Convert the user's request into a shell command for macOS/zsh.
+    shell_info = get_shell()
+    prompt = f"""You are a shell command translator. Convert the user's request into a shell command for {shell_info}.
 Current directory: {cwd}
 
 Recent command history:
@@ -119,6 +135,7 @@ def is_natural_language(text: str) -> bool:
                       "git ", "npm ", "node ", "npx ", "python", "pip ", "brew ", "curl ", 
                       "wget ", "chmod ", "chown ", "sudo ", "vi ", "vim ", "nano ", "code ", 
                       "open ", "export ", "source ", "docker ", "kubectl ", "aws ", "gcloud ",
+                      "dir ", "Get-", "Set-", "New-", "Remove-", "Invoke-",
                       "./", "/", "~", "$", ">", ">>", "|", "&&"]
     if text in shell_commands:
         return False
@@ -154,14 +171,20 @@ def main():
             if user_input == "!uninstall":
                 confirm = input("\033[33mRemove nlsh? [y/N]\033[0m ")
                 if confirm.lower() == "y":
-                    import shutil
                     install_dir = os.path.expanduser("~/.nlsh")
-                    bin_path = os.path.expanduser("~/.local/bin/nlsh")
-                    if os.path.exists(install_dir):
-                        shutil.rmtree(install_dir)
-                    if os.path.exists(bin_path):
-                        os.remove(bin_path)
-                    print("\033[32m✓ nlsh uninstalled\033[0m")
+                    if sys.platform == "win32":
+                        # Cleanup for Windows
+                        if os.path.exists(install_dir):
+                            shutil.rmtree(install_dir)
+                        print("\033[32m✓ nlsh uninstalled\033[0m")
+                        print("\033[33mNote: You may still have nlsh in your PATH or PowerShell Profile.\033[0m")
+                    else:
+                        bin_path = os.path.expanduser("~/.local/bin/nlsh")
+                        if os.path.exists(install_dir):
+                            shutil.rmtree(install_dir)
+                        if os.path.exists(bin_path):
+                            os.remove(bin_path)
+                        print("\033[32m✓ nlsh uninstalled\033[0m")
                     sys.exit(0)
                 continue
             
@@ -173,7 +196,8 @@ def main():
                 cmd = user_input[1:]
                 if not cmd:
                     continue
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                shell_executable = get_shell_executable()
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True, executable=shell_executable)
                 print(result.stdout, end="")
                 if result.stderr:
                     print(result.stderr, end="")
@@ -181,7 +205,8 @@ def main():
                 continue
             
             if not is_natural_language(user_input):
-                result = subprocess.run(user_input, shell=True, capture_output=True, text=True)
+                shell_executable = get_shell_executable()
+                result = subprocess.run(user_input, shell=True, capture_output=True, text=True, executable=shell_executable)
                 print(result.stdout, end="")
                 if result.stderr:
                     print(result.stderr, end="")
@@ -199,7 +224,8 @@ def main():
                     except Exception as e:
                         print(f"cd: {e}")
                 else:
-                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    shell_executable = get_shell_executable()
+                    result = subprocess.run(command, shell=True, capture_output=True, text=True, executable=shell_executable)
                     print(result.stdout, end="")
                     if result.stderr:
                         print(result.stderr, end="")
