@@ -49,17 +49,32 @@ def show_help():
     print("\033[36m!cmd\033[0m       - Run cmd directly")
     print()
 
+def verify_api_key():
+    global client
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        setup_api_key()
+        api_key = os.getenv("GEMINI_API_KEY")
+    
+    try:
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        # Low-cost verification call
+        client.models.list(config={'page_size': 1})
+        return True
+    except Exception as e:
+        err_msg = str(e)
+        if "API key" in err_msg or "INVALID_ARGUMENT" in err_msg or "401" in err_msg:
+            print("\033[31m✕ Invalid API key detected.\033[0m")
+            setup_api_key()
+            return verify_api_key()
+        else:
+            print(f"\033[31m✕ Connection error: {err_msg[:100]}\033[0m")
+            return False
+
 load_env()
 
-first_run = not os.getenv("GEMINI_API_KEY")
-if first_run:
-    setup_api_key()
-    print("\033[1mnlsh\033[0m - talk to your terminal\n")
-    show_help()
-
-from google import genai
-
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+verify_api_key()
 
 command_history = []
 MAX_HISTORY = 10
