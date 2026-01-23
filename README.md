@@ -2,12 +2,20 @@
 
 Talk to your terminal in plain English.
 
-> **Requirements**: macOS or Linux (Windows not currently supported)
+> **Requirements**: macOS, Linux, or Windows (PowerShell)
 
 ## Install
 
+### macOS / Linux
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/junaid-mahmood/nlsh/main/install.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/junaid-mahmood/nlsh/main/install.ps1 | iex
 ```
 
 ## Uninstall
