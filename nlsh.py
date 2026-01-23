@@ -114,7 +114,17 @@ def get_shell() -> str:
 def get_shell_executable():
     if sys.platform != "win32":
         return None
-    return "pwsh" if shutil.which("pwsh") else "powershell"
+    return shutil.which("pwsh") or shutil.which("powershell")
+
+def run_shell_command(command: str, capture_output: bool = True):
+    shell_exe = get_shell_executable()
+    if sys.platform == "win32" and shell_exe:
+        # On Windows, we invoke PowerShell explicitly with -Command
+        # This is more reliable than shell=True + executable
+        return subprocess.run([shell_exe, "-Command", command], capture_output=capture_output, text=True)
+    else:
+        # On Unix-like systems, shell=True uses /bin/sh by default
+        return subprocess.run(command, shell=True, capture_output=capture_output, text=True)
 
 def get_command(user_input: str, cwd: str) -> str:
     history_context = format_history()
@@ -261,8 +271,7 @@ def process_input(user_input: str):
         cmd = user_input[1:]
         if not cmd:
             return
-        shell_executable = get_shell_executable()
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, executable=shell_executable)
+        result = run_shell_command(cmd)
         print(result.stdout, end="")
         if result.stderr:
             print(result.stderr, end="")
@@ -270,8 +279,7 @@ def process_input(user_input: str):
         return
     
     if not is_natural_language(user_input):
-        shell_executable = get_shell_executable()
-        result = subprocess.run(user_input, shell=True, capture_output=True, text=True, executable=shell_executable)
+        result = run_shell_command(user_input)
         print(result.stdout, end="")
         if result.stderr:
             print(result.stderr, end="")
@@ -289,8 +297,7 @@ def process_input(user_input: str):
             except Exception as e:
                 print(f"cd: {e}")
         else:
-            shell_executable = get_shell_executable()
-            result = subprocess.run(command, shell=True, capture_output=True, text=True, executable=shell_executable)
+            result = run_shell_command(command)
             print(result.stdout, end="")
             if result.stderr:
                 print(result.stderr, end="")
