@@ -135,20 +135,36 @@ Rules:
 User request: {user_input}"""
 
     global client
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt
-        )
-        return response.text.strip()
-    except Exception as e:
-        err_msg = str(e)
-        if "API key" in err_msg or "INVALID_ARGUMENT" in err_msg:
-            print("\033[31m✕ Invalid API key provided.\033[0m")
-            setup_api_key()
-            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-            return get_command(user_input, cwd)
-        raise e
+    models_to_try = ["gemini-2.5-flash", "gemini-3-flash", "gemma-3-1b"]
+    
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            return response.text.strip()
+        except Exception as e:
+            err_msg = str(e)
+            
+            # If it's an API Key error, we must fix it regardless of the model
+            if "API key" in err_msg or "INVALID_ARGUMENT" in err_msg:
+                print("\033[31m✕ Invalid API key provided.\033[0m")
+                setup_api_key()
+                client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+                return get_command(user_input, cwd)
+            
+            # If it's a rate limit (429) or model not found (404), try the next model
+            if "429" in err_msg or "404" in err_msg or "quota" in err_msg.lower() or "not found" in err_msg.lower():
+                continue
+            
+            # For other errors, if it's the last model, raise it; otherwise, try next
+            if model_name == models_to_try[-1]:
+                raise e
+            continue
+            
+    # If we reached here, all models failed (likely due to error being raised in the loop)
+    return "error: all models exhausted"
 
 def is_natural_language(text: str) -> bool:
     if text.startswith("!"):
