@@ -127,10 +127,9 @@ User request: {user_input}"""
         return response.text.strip()
     except Exception as e:
         err_msg = str(e)
-        if "API key not valid" in err_msg or "INVALID_ARGUMENT" in err_msg:
-            print("\033[31mInvalid API key detected.\033[0m")
+        if "API key" in err_msg or "INVALID_ARGUMENT" in err_msg:
+            print("\033[31m✕ Invalid API key provided.\033[0m")
             setup_api_key()
-            # Update the global client and retry once
             global client
             client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             return get_command(user_input, cwd)
@@ -268,17 +267,29 @@ def process_input(user_input: str):
 
 def handle_exception(e: Exception):
     err = str(e)
-    if "429" in err or "quota" in err.lower():
-        print("\033[31mrate limit hit - wait a moment and try again\033[0m")
-    elif "InterruptedError" not in err and "KeyboardInterrupt" not in err:
-        if "API key not valid" in err or "INVALID_ARGUMENT" in err:
-            print("\033[31mInvalid API key detected.\033[0m")
-            setup_api_key()
-            global client
-            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-            print("\033[32mPlease try your command again.\033[0m")
-        else:
-            print(f"\033[31merror: {err[:200]}\033[0m")
+    # Handle API Key issues specifically
+    if "API key" in err or "INVALID_ARGUMENT" in err:
+        print("\033[31m✕ Invalid API key. Please check your key and try again.\033[0m")
+        setup_api_key()
+        global client
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    # Handle Rate Limits
+    elif "429" in err or "quota" in err.lower():
+        print("\033[31m✕ Rate limit hit - wait a moment and try again.\033[0m")
+    # Handle other generic errors cleanly
+    else:
+        # Try to extract the message from the error object if it's a common SDK error
+        clean_msg = err
+        if "message" in err and ":" in err:
+            try:
+                # Often SDK errors are like "Code: Message"
+                clean_msg = err.split(":", 1)[1].strip()
+                if "{" in clean_msg: # If it's still a JSON blob, just take the first part
+                    clean_msg = clean_msg.split("{", 1)[0].strip()
+            except:
+                pass
+        
+        print(f"\033[31m✕ Error: {clean_msg}\033[0m")
 
 if __name__ == "__main__":
     main()
