@@ -42,6 +42,7 @@ def show_help():
     print("\033[36m!uninstall\033[0m - Remove nlsh")
     print("\033[36m!help\033[0m      - Show this help")
     print("\033[36m!cmd\033[0m       - Run cmd directly")
+    print("\033[36mexit\033[0m       - Exit nlsh")
     print()
 
 load_env()
@@ -168,6 +169,9 @@ def main():
             if user_input == "!help":
                 show_help()
                 continue
+
+            if user_input in ["exit", "quit", "!exit"]:
+                sys.exit(0)
             
             if user_input.startswith("!"):
                 cmd = user_input[1:]
@@ -205,8 +209,10 @@ def main():
                         print(result.stderr, end="")
                     add_to_history(command, result.stdout + result.stderr)
             
-        except (EOFError, InterruptedError, KeyboardInterrupt):
+        except (InterruptedError, KeyboardInterrupt):
             continue
+        except EOFError:
+            sys.exit(0)
         except Exception as e:
             err = str(e)
             if "429" in err or "quota" in err.lower():
