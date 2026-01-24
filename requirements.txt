@@ -1,1 +1,3 @@
-google-genai
+# Pin version for supply chain security
+# Update periodically after verifying package integrity
+google-genai>=0.5.0,<1.0.0
