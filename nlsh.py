@@ -76,7 +76,7 @@ def add_to_history(command: str, output: str = ""):
 def format_history() -> str:
     if not command_history:
         return "No previous commands."
-    
+
     lines = []
     for i, entry in enumerate(command_history[-5:], 1):
         lines.append(f"{i}. $ {entry['command']}")
@@ -112,12 +112,12 @@ User request: {user_input}"""
 def is_natural_language(text: str) -> bool:
     if text.startswith("!"):
         return False
-    shell_commands = ["ls", "pwd", "clear", "exit", "quit", "whoami", "date", "cal", 
+    shell_commands = ["ls", "pwd", "clear", "exit", "quit", "whoami", "date", "cal",
                       "top", "htop", "history", "which", "man", "touch", "head", "tail",
                       "grep", "find", "sort", "wc", "diff", "tar", "zip", "unzip"]
-    shell_starters = ["cd ", "ls ", "echo ", "cat ", "mkdir ", "rm ", "cp ", "mv ", 
-                      "git ", "npm ", "node ", "npx ", "python", "pip ", "brew ", "curl ", 
-                      "wget ", "chmod ", "chown ", "sudo ", "vi ", "vim ", "nano ", "code ", 
+    shell_starters = ["cd ", "ls ", "echo ", "cat ", "mkdir ", "rm ", "cp ", "mv ",
+                      "git ", "npm ", "node ", "npx ", "python", "pip ", "brew ", "curl ",
+                      "wget ", "chmod ", "chown ", "sudo ", "vi ", "vim ", "nano ", "code ",
                       "open ", "export ", "source ", "docker ", "kubectl ", "aws ", "gcloud ",
                       "./", "/", "~", "$", ">", ">>", "|", "&&"]
     if text in shell_commands:
@@ -130,10 +130,13 @@ def main():
             cwd = os.getcwd()
             prompt = f"\033[32m{os.path.basename(cwd)}\033[0m > "
             user_input = input(prompt).strip()
-            
+
             if not user_input:
                 continue
-            
+
+            if user_input in ("exit", "quit"):
+                break
+
             if user_input.startswith("cd "):
                 path = os.path.expanduser(user_input[3:].strip())
                 try:
@@ -144,13 +147,13 @@ def main():
             elif user_input == "cd":
                 os.chdir(os.path.expanduser("~"))
                 continue
-            
+
             if user_input == "!api":
                 setup_api_key()
                 global client
                 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
                 continue
-            
+
             if user_input == "!uninstall":
                 confirm = input("\033[33mRemove nlsh? [y/N]\033[0m ")
                 if confirm.lower() == "y":
@@ -164,11 +167,11 @@ def main():
                     print("\033[32m✓ nlsh uninstalled\033[0m")
                     sys.exit(0)
                 continue
-            
+
             if user_input == "!help":
                 show_help()
                 continue
-            
+
             if user_input.startswith("!"):
                 cmd = user_input[1:]
                 if not cmd:
@@ -179,7 +182,7 @@ def main():
                     print(result.stderr, end="")
                 add_to_history(cmd, result.stdout + result.stderr)
                 continue
-            
+
             if not is_natural_language(user_input):
                 result = subprocess.run(user_input, shell=True, capture_output=True, text=True)
                 print(result.stdout, end="")
@@ -187,10 +190,10 @@ def main():
                     print(result.stderr, end="")
                 add_to_history(user_input, result.stdout + result.stderr)
                 continue
-            
+
             command = get_command(user_input, cwd)
             confirm = input(f"\033[33m→ {command}\033[0m [Enter] ")
-            
+
             if confirm == "":
                 if command.startswith("cd "):
                     path = os.path.expanduser(command[3:].strip())
@@ -204,8 +207,10 @@ def main():
                     if result.stderr:
                         print(result.stderr, end="")
                     add_to_history(command, result.stdout + result.stderr)
-            
-        except (EOFError, InterruptedError, KeyboardInterrupt):
+
+        except EOFError:
+            break
+        except (InterruptedError, KeyboardInterrupt):
             continue
         except Exception as e:
             err = str(e)
